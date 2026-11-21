@@ -1,0 +1,22 @@
+[package]
+name = "unicraft-deobfuscator"
+version = "1.0.0"
+edition = "2021"
+description = "Modular Rust utility for unpacking Electron/NSIS launchers, parsing ASAR archives natively, and performing static security audits."
+authors = ["Independent Security Researchers"]
+
+[[bin]]
+name = "unicraft"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4.4", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+md-5 = "0.10"
+walkdir = "2.4"
+regex = "1.10"
+chrono = "0.4"
+anyhow = "1.0"
+flate2 = "1.0"
+hex = "0.4"
