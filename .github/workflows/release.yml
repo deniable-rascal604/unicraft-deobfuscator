@@ -10,34 +10,38 @@ permissions:
   contents: write
 
 jobs:
-  build:
-    name: Build ${{ matrix.platform.name }}
-    runs-on: ${{ matrix.platform.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        platform:
-          - name: Linux x86_64
-            os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            bin: unicraft
-            asset_name: unicraft-linux-x86_64.tar.gz
-          - name: Windows x86_64
-            os: windows-latest
-            target: x86_64-pc-windows-msvc
-            bin: unicraft.exe
-            asset_name: unicraft-windows-x86_64.zip
-          - name: macOS Intel
-            os: macos-13
-            target: x86_64-apple-darwin
-            bin: unicraft
-            asset_name: unicraft-macos-x86_64.tar.gz
-          - name: macOS Apple Silicon
-            os: macos-latest
-            target: aarch64-apple-darwin
-            bin: unicraft
-            asset_name: unicraft-macos-aarch64.tar.gz
+  build-linux:
+    name: Build Linux (x86_64 static musl)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
+      - name: Install musl tools
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-musl
+
+      - name: Build binary
+        run: cargo build --release --target x86_64-unknown-linux-musl
+
+      - name: Package archive
+        run: |
+          cd target/x86_64-unknown-linux-musl/release
+          tar -czf ../../../unicraft-linux-x86_64.tar.gz unicraft
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: unicraft-linux-x86_64.tar.gz
+
+  build-windows:
+    name: Build Windows (x86_64)
+    runs-on: windows-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -45,25 +49,46 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.platform.target }}
+          targets: x86_64-pc-windows-msvc
 
       - name: Build binary
-        run: cargo build --release --target ${{ matrix.platform.target }}
+        run: cargo build --release --target x86_64-pc-windows-msvc
 
-      - name: Package archive (Unix)
-        if: runner.os != 'Windows'
-        run: |
-          cd target/${{ matrix.platform.target }}/release
-          tar -czf ../../../${{ matrix.platform.asset_name }} ${{ matrix.platform.bin }}
-
-      - name: Package archive (Windows)
-        if: runner.os == 'Windows'
+      - name: Package archive
         shell: pwsh
         run: |
-          Compress-Archive -Path target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }} -DestinationPath ${{ matrix.platform.asset_name }}
+          Compress-Archive -Path target/x86_64-pc-windows-msvc/release/unicraft.exe -DestinationPath unicraft-windows-x86_64.zip
 
-      - name: Upload asset to release
+      - name: Upload to release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: ${{ matrix.platform.asset_name }}
+          files: unicraft-windows-x86_64.zip
+
+  build-macos:
+    name: Build macOS (Universal Binary: Intel & Apple Silicon)
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust targets
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-apple-darwin, aarch64-apple-darwin
+
+      - name: Build targets
+        run: |
+          cargo build --release --target x86_64-apple-darwin
+          cargo build --release --target aarch64-apple-darwin
+
+      - name: Create Universal Binary
+        run: |
+          lipo -create -output unicraft target/x86_64-apple-darwin/release/unicraft target/aarch64-apple-darwin/release/unicraft
+          tar -czf unicraft-macos-universal.tar.gz unicraft
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: unicraft-macos-universal.tar.gz
