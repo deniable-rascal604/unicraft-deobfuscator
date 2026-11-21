@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   build-linux:
-    name: Build Linux (x86_64 static musl)
+    name: Build Linux
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -40,7 +40,7 @@ jobs:
           files: unicraft-linux-x86_64.tar.gz
 
   build-windows:
-    name: Build Windows (x86_64)
+    name: Build Windows
     runs-on: windows-latest
     steps:
       - name: Checkout repository
@@ -66,7 +66,7 @@ jobs:
           files: unicraft-windows-x86_64.zip
 
   build-macos:
-    name: Build macOS (Universal Binary)
+    name: Build macOS
     runs-on: macos-latest
     steps:
       - name: Checkout repository
@@ -82,13 +82,13 @@ jobs:
           cargo build --release --target x86_64-apple-darwin
           cargo build --release --target aarch64-apple-darwin
 
-      - name: Create Universal Binary
+      - name: Package archive
         run: |
           lipo -create -output unicraft target/x86_64-apple-darwin/release/unicraft target/aarch64-apple-darwin/release/unicraft
-          tar -czf unicraft-macos-universal.tar.gz unicraft
+          tar -czf unicraft-macos.tar.gz unicraft
 
       - name: Upload to release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: unicraft-macos-universal.tar.gz
+          files: unicraft-macos.tar.gz
